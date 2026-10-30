@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-ปริ้นบาร์โค้ด / QR Code สำรองสำหรับ label ไปรษณีย์ (100 x 50 mm)
+ปริ้นบาร์โค้ด / QR Code สำรองสำหรับฉลากขนาด (100 x 50 mm)
 ยิง/พิมพ์เลข -> Enter -> ดูตัวอย่าง -> Enter ปริ้น / Ctrl+S บันทึกภาพ / Esc ยกเลิก
 ต้องติดตั้ง: pip install pillow pywin32 qrcode
 """
