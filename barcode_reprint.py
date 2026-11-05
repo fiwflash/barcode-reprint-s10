@@ -171,7 +171,10 @@ def load_font(px, thai=False):
             return ImageFont.truetype(name, px)
         except OSError:
             pass
-    return ImageFont.load_default()
+    try:
+        return ImageFont.load_default(size=px)   # Pillow >= 10.1
+    except TypeError:
+        return ImageFont.load_default()
 
 def fit_text(draw, text, max_w, size, min_size):
     thai = any(ord(c) > 126 for c in text)
@@ -208,18 +211,18 @@ def render_label(text, kind, dpi, W, H, unp_x=0, unp_y=0):
     if kind == "qr":
         matrix = qr_matrix(text)
         n = len(matrix)
-        side = min(ah - th, aw, mm2px(QR_MAX_MM, dpi))
+        side = min(ah - th - gap, aw, mm2px(QR_MAX_MM, dpi))
         m = side // n
         if m < QR_MIN_MODULE_PX:
             raise ValueError("label ขนาดนี้เล็กเกินไปสำหรับ QR Code ของข้อความนี้")
         size = n * m
-        x0, y0 = (W - size) // 2, my + (ah - (size + th)) // 2
+        x0, y0 = (W - size) // 2, my + (ah - (size + th + gap)) // 2
         for y, row in enumerate(matrix):
             for x, dark in enumerate(row):
                 if dark:
                     draw.rectangle([x0 + x * m, y0 + y * m,
                                     x0 + (x + 1) * m - 1, y0 + (y + 1) * m - 1], fill=0)
-        text_y = y0 + size
+        text_y = y0 + size + gap
     else:
         modules = code128_modules(text)
         max_mod = max(1, int(MAX_MODULE_MM * dpi / 25.4))
@@ -255,6 +258,8 @@ def to_bw(img):
 def save_label_image(path, text, kind, size_mm):
     long_, short = max(size_mm), min(size_mm)
     img, _ = render_label(text, kind, SAVE_DPI, mm2px(long_, SAVE_DPI), mm2px(short, SAVE_DPI))
+    if size_mm[0] < size_mm[1]:      # label แนวตั้ง -> หมุนกลับให้ตรงกับสติกเกอร์จริง
+        img = img.transpose(ROTATE)
     img = to_bw(img)
     ext = os.path.splitext(path)[1].lower()
     if ext == ".pdf":
@@ -283,8 +288,11 @@ STATUS_PROBLEMS = {
 }
 
 def list_printers():
-    flags = win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
-    return [p[2] for p in win32print.EnumPrinters(flags)]
+    try:
+        flags = win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
+        return [p[2] for p in win32print.EnumPrinters(flags)]
+    except Exception:
+        return []
 
 def pick_printer(printers):
     for p in printers:
@@ -427,7 +435,8 @@ class PreviewDialog(tk.Toplevel):
         self.bind("<Return>", lambda e: self.do_print())
         self.bind("<KP_Enter>", lambda e: self.do_print())
         self.bind("<Escape>", lambda e: self.destroy())
-        self.bind("<Control-KeyPress>", lambda e: self.do_save() if e.keycode == 83 else None)
+        self.bind("<Control-s>", lambda e: self.do_save())
+        self.bind("<Control-S>", lambda e: self.do_save())
 
         self.update_idletasks()   # วางกลางจอ
         x = (self.winfo_screenwidth() - self.winfo_reqwidth()) // 2
